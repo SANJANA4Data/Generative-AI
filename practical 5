@@ -1,0 +1,105 @@
+!pip install -q transformers datasets accelerate
+import pandas as pd
+import numpy as np
+from datasets import Dataset
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer
+)
+
+# 1. Create a small labeled dataset
+data = {
+    "text": [
+        "India won the cricket match",
+        "The team scored a goal in football",
+        "The player won a gold medal",
+        "The government passed a new law",
+        "The president addressed the nation",
+        "Elections will be held next month",
+        "Artificial intelligence is growing rapidly",
+        "New smartphone technology was launched",
+        "Scientists developed a new computer chip"
+    ],
+    "label": [0, 0, 0, 1, 1, 1, 2, 2, 2]
+}
+
+df = pd.DataFrame(data)
+
+# 0 = Sports, 1 = Politics, 2 = Technology
+
+# 2. Convert data into Hugging Face Dataset
+dataset = Dataset.from_pandas(df)
+
+# 3. Load pre-trained BERT tokenizer
+model_name = "prajjwal1/bert-tiny"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+# 4. Tokenize the news articles
+def tokenize_data(examples):
+    return tokenizer(
+        examples["text"],
+        padding="max_length",
+        truncation=True,
+        max_length=64
+    )
+
+dataset = dataset.map(tokenize_data, batched=True)
+
+# 5. Load pre-trained model for classification
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    num_labels=3,
+    id2label={
+        0: "Sports",
+        1: "Politics",
+        2: "Technology"
+    },
+    label2id={
+        "Sports": 0,
+        "Politics": 1,
+        "Technology": 2
+    }
+)
+
+# 6. Set training parameters
+training_args = TrainingArguments(
+    output_dir="./news_model",
+    num_train_epochs=5,
+    per_device_train_batch_size=3,
+    learning_rate=2e-5,
+    report_to="none"
+)
+
+# 7. Fine-tune the pre-trained model
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset
+)
+
+trainer.train()
+
+# 8. Classify a new news article
+article = "The government announced a new technology policy"
+
+inputs = tokenizer(
+    article,
+    return_tensors="pt",
+    truncation=True,
+    padding=True
+)
+
+import torch
+
+model.eval()
+with torch.no_grad():
+    outputs = model(**inputs)
+
+prediction = torch.argmax(outputs.logits, dim=1).item()
+
+categories = ["Sports", "Politics", "Technology"]
+
+print("News Article:", article)
+print("Predicted Category:", categories[prediction])
