@@ -1,0 +1,145 @@
+Code:
+
+!pip install -q transformers datasets evaluate accelerate scikit-learn
+
+import pandas as pd
+import numpy as np
+import torch
+import evaluate
+
+from sklearn.model_selection import train_test_split
+from datasets import Dataset
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    TrainingArguments,
+    Trainer
+)
+
+# Load dataset
+df = pd.read_csv("/content/bbc_news.csv")
+
+# Select required categories
+df = df[df["category"].isin(["sport", "politics", "tech"])].copy()
+
+# Convert categories into numerical labels
+label_mapping = {
+    "politics": 0,
+    "sport": 1,
+    "tech": 2
+}
+df["label"] = df["category"].map(label_mapping)
+
+# Split dataset into training and testing sets
+train_df, test_df = train_test_split(
+    df,
+    test_size=0.2,
+    random_state=42,
+    stratify=df["label"]
+)
+
+train_dataset = Dataset.from_pandas(train_df, preserve_index=False)
+test_dataset = Dataset.from_pandas(test_df, preserve_index=False)
+
+# Load tokenizer
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
+def tokenize_function(example):
+    return tokenizer(
+        example["text"],
+        truncation=True,
+        padding="max_length",
+        max_length=128
+    )
+
+train_dataset = train_dataset.map(tokenize_function)
+test_dataset = test_dataset.map(tokenize_function)
+
+# Convert datasets into PyTorch format
+train_dataset.set_format(
+    type="torch",
+    columns=["input_ids", "attention_mask", "label"]
+)
+test_dataset.set_format(
+    type="torch",
+    columns=["input_ids", "attention_mask", "label"]
+)
+
+# Load pre-trained BERT model
+model = AutoModelForSequenceClassification.from_pretrained(
+    "bert-base-uncased",
+    num_labels=3
+)
+
+# Define accuracy metric
+accuracy = evaluate.load("accuracy")
+
+def compute_metrics(eval_pred):
+    predictions, labels = eval_pred
+    predictions = np.argmax(predictions, axis=1)
+    return accuracy.compute(
+        predictions=predictions,
+        references=labels
+    )
+
+# Set training parameters
+training_args = TrainingArguments(
+    output_dir="./results",
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    learning_rate=2e-5,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
+    num_train_epochs=3,
+    weight_decay=0.01,
+    logging_steps=20,
+    load_best_model_at_end=True,
+    report_to="none"
+)
+
+# Create Trainer
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=test_dataset,
+    compute_metrics=compute_metrics
+)
+
+# Train the model
+trainer.train()
+
+# Evaluate the model
+results = trainer.evaluate()
+print(results)
+
+# Predict a new news article
+news = "The government announced a new education policy today."
+
+inputs = tokenizer(
+    news,
+    return_tensors="pt",
+    truncation=True,
+    padding=True,
+    max_length=128
+)
+
+device = next(model.parameters()).device
+inputs = {key: value.to(device) for key, value in inputs.items()}
+
+model.eval()
+with torch.no_grad():
+    outputs = model(**inputs)
+
+prediction = outputs.logits.argmax(dim=1).item()
+
+labels = {
+    0: "Politics",
+    1: "Sports",
+    2: "Technology"
+}
+
+print("News Article:", news)
+print("Predicted Category:", labels[prediction])    
+
+
