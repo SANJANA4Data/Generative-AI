@@ -1,0 +1,68 @@
+# Step 1: Import Required Libraries
+import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.utils import to_categorical
+# Step 2: Define the Corpus
+corpus = [
+&quot;deep learning empowers artificial intelligence&quot;,
+&quot;generative ai transforms creative workflows&quot;,
+&quot;lstm networks excel at sequence prediction&quot;
+]
+# Step 3: Tokenization and N-gram Generation
+
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(corpus)
+total_words = len(tokenizer.word_index) + 1
+input_sequences = []
+for line in corpus:
+token_list = tokenizer.texts_to_sequences([line])[0]
+for i in range(1, len(token_list)):
+n_gram_sequence = token_list[:i + 1]
+input_sequences.append(n_gram_sequence)
+# Calculate maximum sequence length
+max_sequence_len = max(len(x) for x in input_sequences)
+# Apply pre-padding
+input_sequences = np.array(
+pad_sequences(
+input_sequences,
+maxlen=max_sequence_len,
+padding=&#39;pre&#39;
+)
+)
+# Step 4: Generate Input and Target Arrays
+X = input_sequences[:, :-1]
+y = input_sequences[:, -1]
+# One-hot encode target labels
+y = to_categorical(y, num_classes=total_words)
+# Step 5: Construct the LSTM Model
+model = Sequential([
+Embedding(
+input_dim=total_words,
+output_dim=10
+),
+LSTM(100),
+Dense(total_words, activation=&#39;softmax&#39;)
+])
+model.compile(
+loss=&#39;categorical_crossentropy&#39;,
+optimizer=&#39;adam&#39;,
+metrics=[&#39;accuracy&#39;]
+)
+# Step 6: Display Model Details
+print(&quot;--- Next Word Prediction Model Details ---&quot;)
+print(&quot;Number of samples (sequences):&quot;, len(X))
+print(&quot;Total vocabulary size:&quot;, total_words)
+print(&quot;Max sequence length for history:&quot;, max_sequence_len - 1)
+model.summary()
+# Step 7: Train the Model
+history = model.fit(
+X,
+y,
+epochs=1,
+
+batch_size=1,
+verbose=1
+)
