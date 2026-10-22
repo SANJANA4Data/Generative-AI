@@ -1,0 +1,36 @@
+!pip install -q transformers sentencepiece torch
+from transformers import pipeline
+
+# 1. Load a pre-trained transformer model
+summarizer = pipeline(
+    "summarization",
+    model="Falconsai/text_summarization"
+)
+
+# 2. Input a lengthy news article
+article = """
+Artificial intelligence is transforming many industries around
+the world. Healthcare organizations use AI to analyze medical
+images and support doctors in diagnosing diseases. In education,
+AI-powered tools help students learn through personalized lessons.
+Businesses use AI to automate tasks and improve productivity.
+However, experts warn that AI can create challenges related to
+privacy, job losses, and data security. Governments and companies
+are working to develop responsible AI policies to ensure that
+this technology benefits society.
+"""
+
+# 3. Generate a concise summary
+summary = summarizer(
+    article,
+    max_length=60,
+    min_length=20,
+    do_sample=False
+)
+
+# 4. Display the result
+print("Original Article:")
+print(article)
+
+print("\nGenerated Summary:")
+print(summary[0]["summary_text"])
