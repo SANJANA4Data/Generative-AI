@@ -1,0 +1,169 @@
+
+Code: Step 1: Install libraries
+Run this in a code cell:
+python
+%pip install -q transformers scikit-learn accelerate
+Step 2: Import libraries and prepare the datasetStep 1: Install libraries
+Run this in a code cell:
+python
+%pip install -q transformers scikit-learn accelerate
+Step 2: Import libraries and prepare the dataset
+python
+import numpy as np
+import torch
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
+from transformers import (
+AutoTokenizer,
+AutoModelForSequenceClassification,
+TrainingArguments,
+Trainer
+)
+texts = [
+&quot;The team won the cricket world championship&quot;,
+&quot;The football player scored two goals&quot;,
+&quot;India won a gold medal in athletics&quot;,
+&quot;The coach announced the final team lineup&quot;,
+&quot;The tennis tournament begins next week&quot;,
+&quot;The basketball team won the league final&quot;,
+&quot;The government announced new economic policies&quot;,
+&quot;Parliament passed the new education bill&quot;,
+&quot;The election campaign began in the capital&quot;,
+&quot;The minister addressed the national assembly&quot;,
+&quot;Political leaders discussed foreign policy&quot;,
+&quot;The government introduced a new tax policy&quot;,
+&quot;Scientists developed a new artificial intelligence system&quot;,
+&quot;The company launched a powerful computer processor&quot;,
+&quot;Researchers created a new cybersecurity tool&quot;,
+&quot;A startup introduced an advanced robotics system&quot;,
+&quot;Engineers developed a faster computer chip&quot;,
+&quot;The technology company released new software&quot;
+]
+# 0 = Sports, 1 = Politics, 2 = Technology
+labels = [0] * 6 + [1] * 6 + [2] * 6X_train, X_test, y_train, y_test = train_test_split(
+texts,
+labels,
+test_size=0.33,
+random_state=42,
+stratify=labels
+)
+print(&quot;Training samples:&quot;, len(X_train))
+print(&quot;Testing samples:&quot;, len(X_test))
+Step 3: Load the pre-trained model
+python
+model_name = &quot;distilbert/distilbert-base-uncased&quot;
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+id2label = {
+0: &quot;Sports&quot;,
+1: &quot;Politics&quot;,
+2: &quot;Technology&quot;
+}
+label2id = {v: k for k, v in id2label.items()}
+model = AutoModelForSequenceClassification.from_pretrained(
+model_name,
+num_labels=3,
+id2label=id2label,
+label2id=label2id
+)
+Step 4: Tokenize and prepare the data
+python
+train_encodings = tokenizer(
+X_train,
+truncation=True,
+padding=True,
+max_length=128
+)
+test_encodings = tokenizer(
+X_test,
+truncation=True,
+padding=True,
+max_length=128
+)
+
+class NewsDataset(torch.utils.data.Dataset):
+def __init__(self, encodings, labels):
+self.encodings = encodings
+self.labels = labelsdef __len__(self):
+return len(self.labels)
+def __getitem__(self, index):
+item = {
+key: torch.tensor(value[index])
+for key, value in self.encodings.items()
+}
+item[&quot;labels&quot;] = torch.tensor(
+self.labels[index], dtype=torch.long
+)
+return item
+
+train_dataset = NewsDataset(train_encodings, y_train)
+test_dataset = NewsDataset(test_encodings, y_test)
+print(&quot;Text tokenization completed.&quot;)
+Step 5: Train the model
+python
+training_args = TrainingArguments(
+output_dir=&quot;./news_classifier&quot;,
+num_train_epochs=3,
+learning_rate=2e-5,
+per_device_train_batch_size=2,
+per_device_eval_batch_size=2,
+weight_decay=0.01,
+save_strategy=&quot;no&quot;,
+report_to=&quot;none&quot;,
+seed=42
+)
+trainer = Trainer(
+model=model,
+args=training_args,
+train_dataset=train_dataset
+)
+trainer.train()
+Step 6: Evaluate the model
+python
+predictions = trainer.predict(test_dataset)
+predicted_labels = np.argmax(
+predictions.predictions, axis=1
+)
+print(
+&quot;Test Accuracy:&quot;,round(accuracy_score(y_test, predicted_labels) * 100, 2),
+&quot;%&quot;
+)
+print(
+classification_report(
+y_test,
+predicted_labels,
+labels=[0, 1, 2],
+target_names=[&quot;Sports&quot;, &quot;Politics&quot;, &quot;Technology&quot;],
+zero_division=0
+)
+)
+Step 7: Predict a new article
+python
+def classify_news(article):
+model.eval()
+device = next(model.parameters()).device
+inputs = tokenizer(
+article,
+return_tensors=&quot;pt&quot;,
+truncation=True,
+padding=True,
+max_length=128
+)
+inputs = {
+key: value.to(device)
+for key, value in inputs.items()
+}
+with torch.no_grad():
+outputs = model(**inputs)
+probabilities = torch.softmax(outputs.logits, dim=1)
+predicted_id = probabilities.argmax(dim=1).item()
+print(&quot;Article:&quot;, article)
+print(&quot;Predicted Category:&quot;, id2label[predicted_id])
+print(
+&quot;Confidence:&quot;,
+round(probabilities[0, predicted_id].item() * 100, 2),
+&quot;%&quot;
+)
+
+classify_news(
+&quot;The national cricket team won the final match &quot;
+&quot;after an outstanding batting performance&quot;
