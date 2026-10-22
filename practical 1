@@ -1,0 +1,70 @@
+Code:
+# Practical 1: One-Hot Encoding and Bag of Words
+
+# Import required libraries
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.feature_extraction.text import CountVectorizer
+import pandas as pd
+
+# Customer feedback dataset
+feedback = [
+    "Good product",
+    "Bad product",
+    "Good quality product"
+]
+
+# Display customer feedback
+print("Customer Feedback:")
+for i, text in enumerate(feedback, start=1):
+    print(f"D{i}: {text}")
+
+# ---------------------------------
+# One-Hot Encoding
+# ---------------------------------
+print("\n----- One-Hot Encoding -----")
+
+# Split all words and convert to lowercase
+words = []
+for sentence in feedback:
+    words.extend(sentence.lower().split())
+
+# Remove duplicate words while preserving order
+unique_words = list(dict.fromkeys(words))
+
+# Create DataFrame of unique words
+df = pd.DataFrame(unique_words, columns=["Word"])
+
+# Apply One-Hot Encoding
+encoder = OneHotEncoder(sparse_output=False)
+onehot = encoder.fit_transform(df)
+
+# Display encoded vectors
+onehot_df = pd.DataFrame(
+    onehot,
+    columns=encoder.get_feature_names_out(["Word"])
+)
+
+print("\nUnique Words:")
+print(df)
+
+print("\nOne-Hot Encoded Vectors:")
+print(onehot_df)
+
+# ---------------------------------
+# Bag of Words
+# ---------------------------------
+print("\n----- Bag of Words -----")
+
+# Create Bag of Words model
+vectorizer = CountVectorizer()
+bow = vectorizer.fit_transform(feedback)
+
+# Convert matrix into DataFrame
+bow_df = pd.DataFrame(
+    bow.toarray(),
+    columns=vectorizer.get_feature_names_out()
+)
+
+print("\nBag of Words Matrix:")
+print(bow_df)
+
