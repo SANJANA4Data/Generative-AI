@@ -1,0 +1,107 @@
+# Install the new Google GenAI SDK 
+!pip install google-genai -q 
+  
+from google import genai from google.genai import types from google.colab import userdata import getpass 
+ 
+client = None api_key = None 
+ try: 
+    # Try to load key from secrets     api_key = userdata.get('GOOGLE_API_KEY')     print("Found GOOGLE_API_KEY in Colab Secrets.") except Exception: 
+    print("GOOGLE_API_KEY secret not found in Colab Secrets.") 
+    print("You can press Enter to skip and run the chatbot in DEMO/SIMULATION mode instead!") 
+    try: 
+        api_key = getpass.getpass("Enter your Gemini API Key (or press Enter for 
+Simulation): ").strip() 
+    except KeyboardInterrupt: 
+        print("\nKeyboardInterrupt caught. Defaulting to Simulation Mode.")         api_key = "" 
+ if api_key:     try: 
+        client = genai.Client(api_key=api_key) 
+        print("Google GenAI Client successfully initialized!")     except Exception as e: 
+        print(f"Initialization error: {e}. Defaulting to Simulation Mode.") else: 
+    print("Running Chatbot in Simulation Mode (No API key needed for testing the workflow)!") 
+  class ContentGeneratorBot: 
+
+    def __init__(self, client):         self.client = client 
+        self.model = 'gemini-2.5-flash' 
+ 
+        # System prompts configuring distinct agent roles         self.prompts = { 
+            "email": ( 
+                "You are an expert professional communicator and business writer. "                 "Your goal is to write clear, concise, persuasive, and appropriately toned emails. " 
+                "Always include a subject line, respect standard business email formats, and " 
+                "ensure the call to action is distinct and actionable."             ), 
+            "report": ( 
+                "You are an expert business and technical analyst. " 
+                "Your goal is to write well-structured, professional reports. "                 "Use markdown headers, executive summaries, key findings, bullet points, and data-driven " 
+                "sections. Maintain an objective, authoritative, and analytical tone."             ), 
+            "technical": ( 
+                "You are an elite technical educator and developer advocate. "                 "Your goal is to explain highly complex technical, mathematical, or architectural concepts " 
+                "in an accessible and engaging manner. Use analogies, clear stepby-step breakdowns, " 
+                "and well-commented code snippets where appropriate." 
+            ) 
+        } 
+ 
+    def generate(self, mode: str, prompt_input: str, tone: str = "Professional") -> str: 
+        if mode not in self.prompts: 
+            return f"Error: Mode '{mode}' is invalid. Please select from: 
+{list(self.prompts.keys())}" 
+ 
+        # Fallback Mock Service for demonstration when no API Client is connected         if self.client is None: 
+            return self._mock_generate(mode, prompt_input, tone) 
+ 
+        system_instruction = self.prompts[mode] 
+        user_content = f"Task: Generate content based on the following input.\nTone: {tone}\nInput description: {prompt_input}" 
+         try: 
+            response = self.client.models.generate_content(                 model=self.model,                 contents=user_content, 
+                config=types.GenerateContentConfig(                     system_instruction=system_instruction,                     temperature=0.7, 
+                ) 
+            ) 
+
+            return response.text         except Exception as e: 
+            print(f"API failed with error: {e}. Falling back to simulation response.") 
+            return self._mock_generate(mode, prompt_input, tone) 
+     def _mock_generate(self, mode: str, prompt_input: str, tone: str) -> str:         """Mock responses to keep the interface interactive when offline."""         if mode == "email": 
+            return ( 
+                f"Subject: Request for Budget Extension - AI Cloud Resources\n\n"                 f"Dear Department Head,\n\n" 
+                f"I hope this email finds you well. I am writing to formally request a budget extension " 
+                f"of $5,000 for cloud computing resources dedicated to our AI 
+Content Generation project.\n\n" 
+                f"Tone Applied: {tone}\n" 
+                f"Original Prompt: {prompt_input}\n\n"                 f"Best regards,\nProject Lead" 
+            )         elif mode == "report": 
+            return ( 
+                f"# Executive Performance Evaluation Report (Simulation Mode)\n\n"                 f"## Overview\n" 
+                f"This performance analysis evaluation addresses our latest platform metrics: {prompt_input}.\n\n" 
+                f"- **Metric 1**: Sales performance trends up.\n"                 f"- **Metric 2**: Operational latency reduced.\n\n"                 f"**Tone**: {tone}\n" 
+                f"*Report generated successfully via system fallback mechanism.*" 
+            )         elif mode == "technical": 
+            return ( 
+                f"# Technical Deep Dive: Transformers & Attention Mechanisms\n\n"                 f"To explain: *{prompt_input}*...\n\n"                 f"### Key Concepts\n" 
+                f"1. **Self-Attention**: Weighing different words in a sequence dynamically.\n" 
+                f"2. **Parallelization**: Unlike RNNs, transformers process entire sequences at once.\n\n" 
+                f"*Simulation mode output with tone '{tone}'*" 
+            ) 
+        return "Mode completed." 
+ 
+# Instantiate the generator safely (either with client or in Simulation Mode) bot = ContentGeneratorBot(client) 
+ 
+ 
+# 1. Email Generation Demo 
+email_prompt = "Requesting a budget extension of $5,000 from the Department Head for cloud computing resources for our AI project." 
+email_output = bot.generate(mode="email", prompt_input=email_prompt, tone="Formal and Persuasive") 
+ 
+print("=== GENERATED EMAIL ===\n") 
+
+print(email_output) 
+ 
+ 
+# 2. Report Generation Demo report_prompt = "Q3 Performance evaluation of our e-commerce platform. Highlights: Sales up 15%, Server downtime reduced by 50%, Checkout drop-off is still at 
+20%." report_output = bot.generate(mode="report", prompt_input=report_prompt, tone="Analytical") 
+ 
+print("=== GENERATED REPORT ===\n") print(report_output) 
+ 
+ 
+# 3. Technical Explanation Demo 
+tech_prompt = "Explain what transformers are in neural networks and why selfattention is critical." 
+tech_output = bot.generate(mode="technical", prompt_input=tech_prompt, tone="Educational") 
+ 
+print("=== GENERATED TECHNICAL EXPLANATION ===\n") print(tech_output) 
+ 
