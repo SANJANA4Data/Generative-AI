@@ -1,0 +1,36 @@
+# Install required libraries
+!pip install transformers datasets accelerate -q
+import numpy as np
+# HuggingFace pipeline for Question Answering
+from transformers import pipeline
+# Define the text database containing college rules
+college_context = &quot;&quot;&quot;
+Welcome to the Computer Technology Department
+regulations guide.
+To pass a semester, a student must secure a minimum of
+40% marks in both internal assessments and external
+university examinations.
+The minimum attendance criteria required to appear for
+the final examination is 75% for each subject.
+If a student falls below 75% without a valid medical
+certificate, they will be detained.
+The mini-project submission deadline for the 5th
+semester is November 20th.
+Late submissions will face a penalty reduction of 2
+marks per day.
+&quot;&quot;&quot;
+print(&quot;Context Database Loaded Successfully.&quot;)
+# Load a model pre-trained on SQuAD (Stanford Question
+Answering Dataset)
+qa_pipeline = pipeline(&quot;question-answering&quot;,
+model=&quot;deepset/bert-base-cased-squad2&quot;)
+# Define a student query
+student_query_1 = &quot;What is the minimum attendance
+required to give the final exam?&quot;
+
+# Run inference
+result_1 = qa_pipeline(question=student_query_1,
+context=college_context)
+print(&quot;Predicted Answer:&quot;, result_1[&#39;answer&#39;])
+print(&quot;Confidence Score:&quot;, np.round(result_1[&#39;score&#39;],
+4))
